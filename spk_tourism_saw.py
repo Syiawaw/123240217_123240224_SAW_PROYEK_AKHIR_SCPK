@@ -332,8 +332,17 @@ elif halaman == "Hitung SPK":
             st.warning("Tidak ada data untuk dihitung. Periksa filter kota Anda.")
             st.stop()
 
+        # ── Filter hanya kategori yang dipilih user ──────────────────────
+        df_kategori = df_filtered[df_filtered["Category"] == fav_category].copy()
+
+        if df_kategori.empty:
+            st.warning(f"Tidak ada data untuk kategori **{fav_category}** di kota yang dipilih.")
+            st.stop()
+
+        st.info(f"🔍 Menghitung SAW untuk **{len(df_kategori)} destinasi** kategori **{fav_category}**")
+
         with st.spinner("Sedang menghitung nilai SAW..."):
-            df_result, norm_df, norm_w_used = compute_saw(df_filtered, bobot, fav_category)
+            df_result, norm_df, norm_w_used = compute_saw(df_kategori, bobot, fav_category)
 
         st.success("Perhitungan selesai!")
         st.divider()
@@ -421,16 +430,29 @@ elif halaman == "Hitung SPK":
         # Top 5 sorotan 
         st.divider()
         st.subheader("Top 5 Rekomendasi Terbaik")
-        top5 = df_result.head(5)
-        cols = st.columns(5)
-        for i, (_, row) in enumerate(top5.iterrows()):
-            with cols[i]:
-                st.markdown(f"**{row['Place_Name']}**")
-                st.markdown(f"{row['City']}")
-                st.markdown(f"{row['Category']}")
-                st.markdown(f"{row['Rating']}")
-                st.markdown(f"Rp {int(row['Price']):,}")
-                st.markdown(f"SAW: `{row['Nilai_SAW']:.4f}`")
+        top5 = df_result.head(5).copy()
+
+        # Buat tabel Top 5
+        medals = ["1", "2", "3", "4", "5"]
+        top5_tabel = pd.DataFrame({
+            "Peringkat":    medals[:len(top5)],
+            "Nama Tempat":  top5["Place_Name"].values,
+            "Kategori":     top5["Category"].values,
+            "Kota":         top5["City"].values,
+            "Rating ":    top5["Rating"].values,
+            "Harga Tiket ": [
+                "Gratis" if p == 0 else f"Rp {int(p):,}"
+                for p in top5["Price"].values
+            ],
+            "Durasi":   [f"{int(t)} menit" for t in top5["Time_Minutes"].values],
+            "Nilai SAW": [f"{v:.4f}" for v in top5["Nilai_SAW"].values],
+        })
+
+        st.dataframe(
+            top5_tabel,
+            use_container_width=True,
+            hide_index=True,
+        )
 
     else:
         st.info("Atur bobot di sidebar, lalu tekan tombol **Jalankan Perhitungan SAW** untuk melihat hasil.")
